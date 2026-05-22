@@ -21,6 +21,7 @@ Three containers, each with a single responsibility. The FastAPI app is the only
 
 ```bash
 # 1. Clone / download the repo (data.csv must be at the project root)
+git clone https://github.com/iurzaiz/nivii-tht.git
 
 # 2. (Optional) customise the model
 cp .env.example .env
