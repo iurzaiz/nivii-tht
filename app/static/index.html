@@ -163,6 +163,16 @@
   }
   .sidebar .history-list  { flex-direction: column; gap: 5px; }
   .sidebar .history-item  { max-width: 100%; border-radius: var(--radius); white-space: normal; line-height: 1.4; height: auto; padding: 6px 10px 6px 8px; }
+  .btn-clear-history {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 0;
+    transition: color .2s;
+  }
+  .btn-clear-history:hover { color: var(--error); }
 
   /* ── Toggle btn ── */
   .toggle-btn {
@@ -513,7 +523,10 @@
 
 <div class="app-layout">
   <aside class="sidebar" id="sidebar" style="display:none">
-    <div class="section-label" data-i18n="recent"></div>
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+      <div class="section-label" data-i18n="recent" style="margin-bottom:0"></div>
+      <button class="btn-clear-history" onclick="clearHistory()" data-i18n="clear_btn"></button>
+    </div>
     <div class="history-list" id="historyList"></div>
   </aside>
 
@@ -592,6 +605,7 @@
       placeholder:     "¿Cuál es el producto más vendido los viernes?",
       ask_btn:         "Consultar →",
       recent:          "Recientes",
+      clear_btn:       "Limpiar",
       sql_label:       "SQL Generado",
       copy_btn:        "Copiar",
       copied_btn:      "Copiado",
@@ -629,6 +643,7 @@
       placeholder:     "What is the most bought product on Fridays?",
       ask_btn:         "Ask →",
       recent:          "Recent",
+      clear_btn:       "Clear",
       sql_label:       "Generated SQL",
       copy_btn:        "Copy",
       copied_btn:      "Copied!",
@@ -803,6 +818,11 @@
   function updateHistoryAnswer(question, answer) {
     const entry = queryHistory.find(h => h.question === question);
     if (entry) entry.answer = answer;
+  }
+
+  function clearHistory() {
+    queryHistory = [];
+    renderHistory();
   }
 
   function renderHistory() {
