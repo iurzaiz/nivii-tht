@@ -190,3 +190,17 @@ El cuello de botella real va a ser la inferencia del modelo. Ollama funciona bie
 Tiene sentido también cachear el SQL generado para preguntas similares. Un caché semántico con embeddings y búsqueda por similitud de coseno evita hacer inferencia cuando la consulta es equivalente a una reciente.
 
 Del lado de la base de datos: réplicas de lectura para distribuir las queries SELECT, y PgBouncer para connection pooling si hay muchas instancias de la app conectándose en paralelo.
+
+### Colas y notificaciones
+
+El escalado horizontal resuelve la capacidad, pero no el modelo de interacción. La inferencia LLM puede tardar entre 30 y 60 segundos: con el diseño actual, el cliente HTTP queda bloqueado durante toda esa espera. Si hay diez usuarios simultáneos, los últimos nueve esperan en fila o el servidor colapsa bajo la presión de conexiones abiertas.
+
+La solución es desacoplar la recepción del request de su procesamiento:
+
+1. El cliente envía la pregunta y recibe un `job_id` inmediatamente (respuesta en milisegundos).
+2. La tarea se encola en **Redis** y un worker **Celery** (o RQ) la procesa en background.
+3. Cuando el resultado está listo, el servidor notifica al cliente vía **WebSocket**.
+
+Esto cambia el contrato de la API de "esperá hasta que termine" a "te aviso cuando esté". El SSE actual asume una conexión HTTP persistente que escala mal bajo carga; WebSocket es más adecuado para este patrón de notificación asincrónica.
+
+Como beneficio adicional, la cola actúa como buffer ante picos de tráfico: si llegan 50 requests al mismo tiempo, se procesan ordenadamente en vez de saturar los workers de inferencia.
