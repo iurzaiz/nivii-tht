@@ -37,7 +37,7 @@ Por defecto, Ollama cuantiza el modelo a `q4_K_M`, lo que reduce el uso de memor
 
 ### Limitaciones conocidas
 
-En CPU, el modelo es lento. Una consulta puede tardar entre 30 segundos y varios minutos dependiendo del hardware. Hay dos alternativas para mitigarlo: usar `qwen2.5-coder:3b` (configurable con `MODEL_NAME=qwen2.5-coder:3b` en el `.env`) o correr Ollama de forma nativa en Mac con Apple Silicon, donde la aceleración por Metal reduce los tiempos considerablemente. Ambas opciones están documentadas en el README.
+En CPU, el modelo es lento. Una consulta tarda aproximadamente entre 30s a varios minutos dependiendo del hardware (45s en mi pc Macbook M1 MAX 32gb). Hay dos alternativas para mitigarlo: usar `qwen2.5-coder:3b` (configurable con `MODEL_NAME=qwen2.5-coder:3b` en el `.env`) o correr Ollama de forma nativa en Mac con Apple Silicon, donde la aceleración por Metal reduce los tiempos considerablemente. Ambas opciones están documentadas en el README.
 
 ---
 
@@ -80,6 +80,8 @@ Se incluyen tres ejemplos fijos de pregunta → SQL al final del prompt. Sirven 
 El SQL tiene una respuesta correcta. No se necesita variación creativa. Con temperature 0 el modelo es determinista, lo que hace que los reintentos ante errores sean significativos: el modelo está corrigiendo algo concreto, no explorando una dirección distinta al azar.
 
 Para la respuesta en lenguaje natural se usa temperature 0.3. Ahí sí tiene sentido que haya algo de variación en el fraseo.
+
+Este rango de temperatura elegido es el rango comunmente usado para alta precisión.
 
 ---
 
