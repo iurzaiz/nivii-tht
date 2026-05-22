@@ -107,7 +107,7 @@ Returns a stream of Server-Sent Events with answer tokens. `lang` accepts `"es"`
 
 ## Scaling
 
-See [DOCUMENTATION.md — Escalabilidad](DOCUMENTATION.md#escalabilidad) for a detailed breakdown.
+See [CONSIDERATIONS.md — Escalabilidad](CONSIDERATIONS.md#escalabilidad) for a detailed breakdown.
 
 ---
 
