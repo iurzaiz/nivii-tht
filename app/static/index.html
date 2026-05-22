@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nivii.ai x Imanol Urzaiz</title>
+<link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+  /* Apply theme before render to avoid flash */
+  document.documentElement.dataset.theme = localStorage.getItem('theme') || 'dark';
+</script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ── Tokens ── */
+  :root {
+    --bg:       #0d1a16;
+    --surface:  #112219;
+    --surface2: #172e23;
+    --border:   #264d3a;
+    --accent:   #3d9e7e;
+    --accent2:  #56c9a0;
+    --text:     #e0ede8;
+    --muted:    #7aab95;
+    --error:    #f85149;
+    --sql-bg:   #0a1510;
+    --radius:   8px;
+  }
+  [data-theme="light"] {
+    --bg:       #ffffff;
+    --surface:  #f4faf7;
+    --surface2: #e8f5ef;
+    --border:   #c2ddd3;
+    --accent:   #2d8a6a;
+    --accent2:  #1f6e52;
+    --text:     #1a2e28;
+    --muted:    #5a8272;
+    --error:    #cf222e;
+    --sql-bg:   #f4faf7;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+    display: flex;
+    flex-direction: column;
+    transition: background .2s, color .2s;
+  }
+
+  /* ── Header ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 10;
+    gap: 12px;
+    transition: background .2s, border-color .2s;
+  }
+
+  .brand-logo { height: 28px; width: auto; display: block; }
+  [data-theme="light"] .brand-logo { filter: none; }
+  .tagline { font-size: 11px; color: var(--muted); margin-top: 1px; font-style: italic; }
+
+  .header-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+  .btn-ghost {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 5px 12px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 13px;
+    transition: border-color .2s, color .2s;
+    white-space: nowrap;
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-theme {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 5px 9px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    transition: border-color .2s, color .2s;
+  }
+  .btn-theme:hover { border-color: var(--accent); color: var(--accent); }
+
+  .lang-select {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: var(--radius);
+    padding: 4px 8px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: border-color .2s, color .2s;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .lang-select:hover { border-color: var(--accent); color: var(--accent); }
+  .lang-select:focus { outline: none; border-color: var(--accent); }
+
+  /* ── Schema panel ── */
+  #schemaPanel {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 24px;
+    display: none;
+    animation: slideDown .2s ease;
+    transition: background .2s, border-color .2s;
+  }
+  #schemaPanel.open { display: block; }
+  @keyframes slideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+
+  #schemaPanel h3 { font-size: 13px; color: var(--muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .5px; }
+
+  .schema-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap: 10px; }
+  .schema-col {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-size: 13px;
+    transition: background .2s, border-color .2s;
+  }
+  .schema-col .col-name    { color: var(--accent); font-weight: 600; }
+  .schema-col .col-type    { color: var(--muted); font-size: 11px; margin-left: 6px; }
+  .schema-col .col-samples { color: var(--muted); margin-top: 4px; font-size: 12px; }
+
+  /* ── App layout ── */
+  .app-layout {
+    display: flex;
+    flex: 1;
+    align-items: flex-start;
+    min-height: 0;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    padding: 20px 14px;
+    background: var(--surface);
+    position: sticky;
+    top: 57px;
+    height: calc(100vh - 57px);
+    overflow-y: auto;
+    transition: background .2s, border-color .2s;
+  }
+  .sidebar .history-list  { flex-direction: column; gap: 5px; }
+  .sidebar .history-item  { max-width: 100%; border-radius: var(--radius); white-space: normal; line-height: 1.4; height: auto; padding: 6px 10px 6px 8px; }
+
+  /* ── Toggle btn ── */
+  .toggle-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 0 4px 0 0;
+    line-height: 1;
+    transition: color .2s, transform .15s;
+    flex-shrink: 0;
+  }
+  .toggle-btn:hover { color: var(--accent); }
+
+  /* ── Main ── */
+  main { flex: 1; min-width: 0; max-width: 860px; margin: 0 auto; padding: 32px 24px; }
+
+  /* ── Input card ── */
+  .input-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 16px;
+    transition: background .2s, border-color .2s;
+  }
+
+  textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 15px;
+    padding: 12px 14px;
+    resize: vertical;
+    min-height: 72px;
+    outline: none;
+    transition: border-color .2s, background .2s, color .2s;
+    font-family: inherit;
+  }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--muted); }
+
+  .input-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 12px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .model-selector { display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--muted); }
+  .model-selector label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  .model-selector input[type=radio] { accent-color: var(--accent); }
+
+  .ask-group { display: flex; align-items: center; gap: 8px; }
+
+  .btn-mic {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 8px 10px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    transition: border-color .2s, color .2s, background .2s;
+    flex-shrink: 0;
+  }
+  .btn-mic:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-mic.recording {
+    border-color: var(--error);
+    color: var(--error);
+    animation: pulse-mic 1s ease-in-out infinite;
+  }
+  @keyframes pulse-mic {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: .4; }
+  }
+
+  .shortcut-hint {
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: monospace;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 9px 20px;
+    border-radius: var(--radius);
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: opacity .2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  [data-theme="light"] .btn-primary { color: #fff; }
+  .btn-primary:hover    { opacity: .85; }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ── Suggestions ── */
+  .suggestions { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 7px; }
+  .suggestion {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: border-color .2s, color .2s, background .2s;
+  }
+  .suggestion:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── History ── */
+  .history-section { margin-bottom: 20px; }
+  .section-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 8px; }
+  .history-list  { display: flex; flex-wrap: wrap; gap: 7px; }
+  .history-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+    padding: 4px 10px 4px 8px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: border-color .2s, color .2s;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .history-item::before { content: "↺"; font-size: 11px; flex-shrink: 0; }
+  .history-item:hover   { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Result cards ── */
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+    overflow: hidden;
+    animation: fadeIn .25s ease;
+    transition: background .2s, border-color .2s;
+  }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    gap: 10px;
+    transition: border-color .2s;
+  }
+  .card-header .label   { font-weight: 600; color: var(--text); white-space: nowrap; }
+  .card-header .meta    { color: var(--muted); font-size: 12px; flex: 1; }
+  .card-header .actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+
+  .btn-small {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all .2s;
+    white-space: nowrap;
+  }
+  .btn-small:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  /* ── Chart ── */
+  #chartContainer { padding: 16px 20px; }
+  #chartContainer canvas { max-height: 340px; }
+
+  /* ── SQL block ── */
+  pre {
+    margin: 0;
+    padding: 16px;
+    background: var(--sql-bg);
+    overflow-x: auto;
+    font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text);
+    transition: background .2s, color .2s;
+  }
+
+  /* ── Results table ── */
+  .table-wrapper { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    white-space: nowrap;
+    background: var(--surface2);
+    transition: background .2s, border-color .2s;
+  }
+  td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: border-color .2s;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+
+  .empty-state {
+    padding: 28px 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.8;
+  }
+  .empty-state strong { display: block; color: var(--text); margin-bottom: 4px; font-size: 14px; }
+
+  .trunc-note {
+    padding: 8px 14px;
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+    transition: background .2s, border-color .2s;
+  }
+
+  /* ── Answer ── */
+  .answer-body { padding: 18px 20px; font-size: 15px; color: var(--text); min-height: 52px; line-height: 1.7; }
+  .cursor {
+    display: inline-block;
+    width: 2px; height: 1em;
+    background: var(--accent);
+    margin-left: 2px;
+    animation: blink .8s step-end infinite;
+    vertical-align: text-bottom;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ── Error ── */
+  .error-card {
+    background: rgba(248,81,73,.08);
+    border: 1px solid var(--error);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    font-size: 14px;
+    color: var(--error);
+    display: none;
+    margin-bottom: 16px;
+  }
+
+  /* ── Timer badge ── */
+  .timer-badge {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 11px;
+    opacity: .75;
+    background: rgba(0,0,0,.15);
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 2px;
+    letter-spacing: .3px;
+  }
+
+  /* ── Spinner ── */
+  .spinner {
+    width: 13px; height: 13px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Footer ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    font-size: 12px;
+    color: var(--muted);
+    transition: border-color .2s;
+  }
+  .footer-linkedin {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 4px 10px;
+    transition: border-color .2s, color .2s;
+  }
+  .footer-linkedin:hover { border-color: var(--accent); color: var(--accent); }
+  .footer-linkedin svg { flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-brand">
+    <img src="/static/nivii-logo.png" alt="nivii" class="brand-logo">
+    <div class="tagline" data-i18n="tagline"></div>
+  </div>
+  <div class="header-controls">
+    <button class="btn-theme" id="themeToggle" onclick="toggleTheme()" title="Toggle theme"></button>
+    <select class="lang-select" id="langSelect" onchange="setLang(this.value)">
+      <option value="es">ES</option>
+      <option value="en">EN</option>
+    </select>
+    <button class="btn-ghost" id="schemaBtn" onclick="toggleSchema()" data-i18n="schema_btn"></button>
+  </div>
+</header>
+
+<div id="schemaPanel">
+  <h3><span data-i18n="schema_title"></span> — <span id="rowCountBadge"></span></h3>
+  <div class="schema-grid" id="schemaGrid"></div>
+</div>
+
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar" style="display:none">
+    <div class="section-label" data-i18n="recent"></div>
+    <div class="history-list" id="historyList"></div>
+  </aside>
+
+  <main>
+  <div class="input-card">
+    <textarea id="question" rows="2" onkeydown="handleKey(event)"></textarea>
+    <div class="input-actions">
+      <div></div>
+      <div class="ask-group">
+        <button class="btn-mic" id="micBtn" onclick="toggleVoice()" title="Dictado por voz" style="display:none">🎤</button>
+        <span class="shortcut-hint" id="shortcutHint"></span>
+        <button class="btn-primary" id="askBtn" onclick="handleQuery()"></button>
+      </div>
+    </div>
+    <div class="suggestions" id="suggestions"></div>
+  </div>
+
+  <div class="error-card" id="errorCard"></div>
+
+  <div id="results" style="display:none">
+
+    <div class="result-card">
+      <div class="card-header">
+        <button class="toggle-btn" id="sqlToggle" onclick="toggleSQL()">▾</button>
+        <span class="label" data-i18n="sql_label"></span>
+        <span class="meta"  id="sqlMeta"></span>
+        <div class="actions">
+          <button class="btn-small" id="copyBtn" onclick="copySQL()"></button>
+        </div>
+      </div>
+      <pre id="sqlDisplay"></pre>
+    </div>
+
+    <div class="result-card">
+      <div class="card-header">
+        <span class="label" data-i18n="results_label"></span>
+        <span class="meta"  id="tableMeta"></span>
+        <div class="actions">
+          <button class="btn-small" id="chartBtn" onclick="toggleChart()" style="display:none" data-i18n="chart_btn"></button>
+          <button class="btn-small" id="exportBtn" onclick="exportCSV()"></button>
+        </div>
+      </div>
+      <div class="table-wrapper" id="tableWrapper"></div>
+      <div id="chartContainer" style="display:none"><canvas id="chartCanvas"></canvas></div>
+      <div id="truncNote" style="display:none" class="trunc-note"></div>
+    </div>
+
+    <div class="result-card">
+      <div class="card-header">
+        <span class="label" data-i18n="answer_label"></span>
+        <span class="meta"  id="answerMeta"></span>
+      </div>
+      <div class="answer-body" id="answerDisplay"></div>
+    </div>
+
+  </div>
+  </main>
+</div><!-- /.app-layout -->
+
+<footer>
+  <a class="footer-linkedin" href="https://www.linkedin.com/in/imanol-urzaiz" target="_blank" rel="noopener">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+    </svg>
+    Imanol Urzaiz
+  </a>
+</footer>
+
+<script>
+  // ── i18n strings ──────────────────────────────────────────────
+  const STRINGS = {
+    es: {
+      tagline:         "Preguntale cualquier cosa a tus datos.",
+      schema_btn:      "Schema",
+      schema_title:    "Schema de la base de datos",
+      placeholder:     "¿Cuál es el producto más vendido los viernes?",
+      ask_btn:         "Consultar →",
+      recent:          "Recientes",
+      sql_label:       "SQL Generado",
+      copy_btn:        "Copiar",
+      copied_btn:      "Copiado",
+      results_label:   "Resultados",
+      chart_btn:       "Gráfico",
+      table_btn:       "Tabla",
+      export_btn:      "Exportar CSV",
+      answer_label:    "Respuesta",
+      empty_title:     "Sin resultados",
+      empty_msg:       "La consulta no devolvió filas. Puede que la pregunta sea muy específica, o que el modelo haya tenido un mal día.",
+      trunc_msg:       n => `Mostrando los primeros ${n} resultados. Refiná la consulta para ver más.`,
+      error_answer:    "No se pudo generar la respuesta.",
+      attempts_lbl:    n => n > 1 ? ` · ${n} intentos` : "",
+      rows_lbl:        n => `${n} fila${n !== 1 ? "s" : ""}`,
+      suggestions: [
+        "¿Cuál es el producto más comprado los viernes?",
+        "¿Qué mozo tuvo mayor facturación total?",
+        "Top 5 productos por cantidad vendida",
+        "¿Cómo varían las ventas por hora del día?",
+        "Ticket promedio por día de la semana",
+      ],
+      loading_msgs: [
+        "Consultando el oráculo...",
+        "Traduciendo al idioma de las máquinas...",
+        "Generando SQL (con confianza variable)...",
+        "El modelo está pensando. Paciencia.",
+        "Hablando con el modelo...",
+        "Interpretando tu pregunta...",
+      ],
+    },
+    en: {
+      tagline:         "Ask your data anything.",
+      schema_btn:      "Schema",
+      schema_title:    "Database schema",
+      placeholder:     "What is the most bought product on Fridays?",
+      ask_btn:         "Ask →",
+      recent:          "Recent",
+      sql_label:       "Generated SQL",
+      copy_btn:        "Copy",
+      copied_btn:      "Copied!",
+      results_label:   "Results",
+      chart_btn:       "Chart",
+      table_btn:       "Table",
+      export_btn:      "Export CSV",
+      answer_label:    "Answer",
+      empty_title:     "No results",
+      empty_msg:       "The query returned no rows. The question might be too specific, or the model had an off day.",
+      trunc_msg:       n => `Showing the first ${n} results. Refine your query to see more.`,
+      error_answer:    "Could not generate answer.",
+      attempts_lbl:    n => n > 1 ? ` · ${n} attempt${n > 1 ? "s" : ""}` : "",
+      rows_lbl:        n => `${n} row${n !== 1 ? "s" : ""}`,
+      suggestions: [
+        "What is the most bought product on Fridays?",
+        "Which waiter had the highest total revenue?",
+        "Top 5 products by quantity sold",
+        "How do sales vary by hour of the day?",
+        "Average ticket value per weekday",
+      ],
+      loading_msgs: [
+        "Consulting the oracle...",
+        "Translating to machine language...",
+        "Generating SQL (confidence may vary)...",
+        "The model is thinking. Patience.",
+        "Talking to the model...",
+        "Interpreting your question...",
+      ],
+    },
+  };
+
+  // ── SQL formatter ─────────────────────────────────────────────
+  function formatSQL(sql) {
+    let q = sql.replace(/\s+/g, ' ').trim();
+    // Multi-word keywords first (longest match wins)
+    for (const kw of ['LEFT OUTER JOIN','RIGHT OUTER JOIN','FULL OUTER JOIN',
+                       'LEFT JOIN','RIGHT JOIN','INNER JOIN','CROSS JOIN','FULL JOIN',
+                       'GROUP BY','ORDER BY']) {
+      q = q.replace(new RegExp(`\\b${kw}\\b`, 'gi'), `\n${kw.toUpperCase()}`);
+    }
+    // Single-word keywords
+    for (const kw of ['SELECT','FROM','WHERE','HAVING','LIMIT','OFFSET','UNION ALL','UNION','JOIN','ON','SET']) {
+      q = q.replace(new RegExp(`\\b${kw}\\b`, 'gi'), `\n${kw.toUpperCase()}`);
+    }
+    // Indent AND / OR
+    q = q.replace(/\bAND\b/gi, '\n  AND');
+    q = q.replace(/\bOR\b/gi,  '\n  OR');
+    return q.replace(/^\n+/, '').trim();
+  }
+
+  // ── SQL toggle ────────────────────────────────────────────────
+  let sqlCollapsed = false;
+  function toggleSQL() {
+    sqlCollapsed = !sqlCollapsed;
+    document.getElementById('sqlDisplay').style.display = sqlCollapsed ? 'none' : 'block';
+    document.getElementById('sqlToggle').textContent    = sqlCollapsed ? '▸' : '▾';
+  }
+
+  // ── State ─────────────────────────────────────────────────────
+  const ROW_LIMIT    = 500;
+  let currentLang    = localStorage.getItem('lang') || 'es';
+  let currentSQL     = "";
+  let currentRows    = [];
+  let loadingTimer   = null;
+  let timerInterval  = null;
+  let loadingIdx     = 0;
+  let startTime      = 0;
+  let queryHistory   = [];
+
+  const s = () => STRINGS[currentLang];
+
+  // ── Init ──────────────────────────────────────────────────────
+  const isMac = /mac/i.test(navigator.platform);
+  document.getElementById("shortcutHint").textContent = isMac ? "⌘↵" : "Ctrl+↵";
+
+  applyLang(false);
+  updateThemeIcon();
+
+  // Load schema
+  (async () => {
+    document.getElementById("schemaGrid").textContent = s().schema_title + "…";
+    try {
+      const data = await fetch("/schema").then(r => r.json());
+      renderSchema(data);
+    } catch {
+      document.getElementById("schemaGrid").textContent = "–";
+    }
+  })();
+
+  // ── Language ──────────────────────────────────────────────────
+  function setLang(lang) {
+    currentLang = lang;
+    applyLang(true);
+  }
+
+  function applyLang(save) {
+    if (save) localStorage.setItem('lang', currentLang);
+    document.documentElement.lang = currentLang;
+
+    // Update all data-i18n elements
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const val = s()[el.dataset.i18n];
+      if (typeof val === 'string') el.textContent = val;
+    });
+
+    // Non-data-i18n elements
+    document.getElementById("question").placeholder = s().placeholder;
+
+    const askBtn = document.getElementById("askBtn");
+    if (!askBtn.disabled) askBtn.textContent = s().ask_btn;
+
+    document.getElementById("copyBtn").textContent   = s().copy_btn;
+    document.getElementById("exportBtn").textContent = s().export_btn;
+
+    document.getElementById("langSelect").value = currentLang;
+
+    renderSuggestions();
+    renderHistory();
+  }
+
+  // ── Theme ─────────────────────────────────────────────────────
+  function toggleTheme() {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem("theme", next);
+    updateThemeIcon();
+  }
+
+  function updateThemeIcon() {
+    const isDark = document.documentElement.dataset.theme !== "light";
+    document.getElementById("themeToggle").textContent = isDark ? "☀" : "☾";
+  }
+
+  // ── Schema ────────────────────────────────────────────────────
+  function renderSchema(data) {
+    document.getElementById("rowCountBadge").textContent = `${data.row_count.toLocaleString()} filas`;
+    const grid = document.getElementById("schemaGrid");
+    grid.innerHTML = Object.entries(data.columns).map(([name, info]) => `
+      <div class="schema-col">
+        <div><span class="col-name">${name}</span><span class="col-type">${info.type}</span></div>
+        <div class="col-samples">ej. ${info.samples.slice(0,3).join(", ")}</div>
+      </div>
+    `).join("");
+  }
+
+  function toggleSchema() {
+    document.getElementById("schemaPanel").classList.toggle("open");
+  }
+
+  // ── Suggestions ───────────────────────────────────────────────
+  function renderSuggestions() {
+    document.getElementById("suggestions").innerHTML = s().suggestions
+      .map(q => `<span class="suggestion" onclick="fill(this)">${q}</span>`)
+      .join("");
+  }
+
+  function fill(el) {
+    document.getElementById("question").value = el.textContent.trim();
+    document.getElementById("question").focus();
+  }
+
+  // ── History ───────────────────────────────────────────────────
+  // Each entry: { question, queryData, answer }
+  function addToHistory(question, queryData) {
+    queryHistory = queryHistory.filter(h => h.question !== question);
+    queryHistory.unshift({ question, queryData, answer: null });
+    queryHistory = queryHistory.slice(0, 5);
+    renderHistory();
+  }
+
+  function updateHistoryAnswer(question, answer) {
+    const entry = queryHistory.find(h => h.question === question);
+    if (entry) entry.answer = answer;
+  }
+
+  function renderHistory() {
+    const sidebar = document.getElementById("sidebar");
+    const list    = document.getElementById("historyList");
+    if (queryHistory.length === 0) { sidebar.style.display = "none"; return; }
+    sidebar.style.display = "block";
+    list.innerHTML = queryHistory.map((h, i) =>
+      `<span class="history-item" title="${h.question}" onclick="restoreHistory(${i})">${h.question}</span>`
+    ).join("");
+  }
+
+  function restoreHistory(idx) {
+    const entry = queryHistory[idx];
+    if (!entry) return;
+    document.getElementById("question").value = entry.question;
+    if (!entry.queryData) return;
+    renderResults(entry.question, entry.queryData);
+    if (entry.answer) {
+      document.getElementById("answerDisplay").textContent = entry.answer;
+    } else {
+      streamAnswer(entry.question, entry.queryData);
+    }
+  }
+
+  // ── Keyboard ──────────────────────────────────────────────────
+  function handleKey(e) {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleQuery();
+  }
+
+  // ── Loading ───────────────────────────────────────────────────
+  function startLoading() {
+    const btn = document.getElementById("askBtn");
+    btn.disabled = true;
+    loadingIdx = Math.floor(Math.random() * s().loading_msgs.length);
+    startTime  = Date.now();
+
+    // Build once — spinner element stays stable so its CSS animation runs uninterrupted
+    btn.innerHTML =
+      `<span class="spinner"></span>` +
+      `<span id="loadingText"> ${s().loading_msgs[loadingIdx]}</span>` +
+      ` <span class="timer-badge" id="loadingTimer">0.0s</span>`;
+
+    // Rotate message text only (no DOM rebuild)
+    loadingTimer = setInterval(() => {
+      loadingIdx = (loadingIdx + 1) % s().loading_msgs.length;
+      const el = document.getElementById("loadingText");
+      if (el) el.textContent = " " + s().loading_msgs[loadingIdx];
+    }, 2500);
+
+    // Update only the timer badge
+    timerInterval = setInterval(() => {
+      const el = document.getElementById("loadingTimer");
+      if (el) el.textContent = ((Date.now() - startTime) / 1000).toFixed(1) + "s";
+    }, 100);
+  }
+
+  function stopLoading() {
+    clearInterval(loadingTimer);
+    clearInterval(timerInterval);
+    loadingTimer  = null;
+    timerInterval = null;
+    const btn = document.getElementById("askBtn");
+    btn.disabled  = false;
+    btn.textContent = s().ask_btn;
+  }
+
+  // ── Error ─────────────────────────────────────────────────────
+  function showError(msg) {
+    const el = document.getElementById("errorCard");
+    el.textContent = msg;
+    el.style.display = "block";
+  }
+  function clearError() { document.getElementById("errorCard").style.display = "none"; }
+
+  // ── Query flow ────────────────────────────────────────────────
+  async function handleQuery() {
+    const question = document.getElementById("question").value.trim();
+    if (!question) return;
+
+    clearError();
+    startLoading();
+    document.getElementById("results").style.display = "none";
+
+    let queryData;
+    try {
+      const res = await fetch("/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Query failed.");
+      }
+      queryData = await res.json();
+    } catch (e) {
+      showError(e.message);
+      stopLoading();
+      return;
+    }
+
+    addToHistory(question, queryData);
+    renderResults(question, queryData);
+    stopLoading();
+    streamAnswer(question, queryData);
+  }
+
+  // ── Chart ────────────────────────────────────────────────────
+  let chartInstance = null;
+  let chartMode     = false;
+
+  function isChartable(rows) {
+    if (!rows || rows.length < 2) return false;
+    const keys = Object.keys(rows[0]);
+    if (keys.length < 2) return false;
+    const isNum = k => rows.every(r => r[k] !== null && r[k] !== "" && !isNaN(parseFloat(r[k])));
+    // Need at least one numeric value column (not the label)
+    const labelCol  = keys.find(k => !isNum(k)) || keys[0];
+    const valueCols = keys.filter(k => k !== labelCol && isNum(k));
+    return valueCols.length >= 1;
+  }
+
+  function toggleChart() {
+    chartMode = !chartMode;
+    document.getElementById("tableWrapper").style.display  = chartMode ? "none" : "";
+    document.getElementById("chartContainer").style.display = chartMode ? "" : "none";
+    document.getElementById("chartBtn").textContent = chartMode ? s().table_btn : s().chart_btn;
+    if (chartMode) _renderChart(currentRows);
+  }
+
+  function _renderChart(rows) {
+    const keys  = Object.keys(rows[0]);
+    const isNum = k => rows.every(r => r[k] !== null && r[k] !== "" && !isNaN(parseFloat(r[k])));
+    const labelCol  = keys.find(k => !isNum(k)) || keys[0];
+    const valueCols = keys.filter(k => k !== labelCol && isNum(k));
+
+    const labels = rows.map(r => String(r[labelCol]).slice(0, 28));
+    const cs     = getComputedStyle(document.documentElement);
+    const accent  = cs.getPropertyValue("--accent").trim();
+    const accent2 = cs.getPropertyValue("--accent2").trim();
+    const muted   = cs.getPropertyValue("--muted").trim();
+    const border  = cs.getPropertyValue("--border").trim();
+    const palette = [accent, accent2, "#e67e22", "#9b59b6", "#e74c3c"];
+
+    const isDate    = labels.some(l => /^\d{4}-\d{2}/.test(l));
+    const chartType = isDate ? "line" : "bar";
+
+    const datasets = valueCols.map((col, i) => ({
+      label: col,
+      data: rows.map(r => parseFloat(r[col])),
+      backgroundColor: chartType === "bar" ? palette[i % palette.length] + "bb" : palette[i % palette.length] + "22",
+      borderColor: palette[i % palette.length],
+      borderWidth: 2,
+      borderRadius: chartType === "bar" ? 4 : 0,
+      tension: 0.3,
+      fill: chartType === "line",
+      pointRadius: 3,
+    }));
+
+    const ctx = document.getElementById("chartCanvas").getContext("2d");
+    if (chartInstance) chartInstance.destroy();
+    chartInstance = new Chart(ctx, {
+      type: chartType,
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: { display: valueCols.length > 1, labels: { color: muted } },
+        },
+        scales: {
+          x: { ticks: { color: muted, maxTicksLimit: 14 }, grid: { color: border + "55" } },
+          y: { ticks: { color: muted }, grid: { color: border + "55" } },
+        },
+      },
+    });
+  }
+
+  // ── Render results ────────────────────────────────────────────
+  function renderResults(question, data) {
+    currentSQL  = data.sql;
+    currentRows = data.rows;
+
+    // Reset SQL toggle
+    sqlCollapsed = false;
+    document.getElementById("sqlDisplay").style.display = "block";
+    document.getElementById("sqlToggle").textContent    = "▾";
+    document.getElementById("sqlDisplay").textContent   = formatSQL(data.sql);
+    const attemptsLbl = s().attempts_lbl(data.attempts);
+    document.getElementById("sqlMeta").textContent =
+      `${data.timing.sql_generation_ms}ms${attemptsLbl}`;
+
+    // Reset chart state
+    chartMode = false;
+    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    document.getElementById("chartContainer").style.display = "none";
+    document.getElementById("tableWrapper").style.display   = "";
+    const chartBtn = document.getElementById("chartBtn");
+    chartBtn.textContent  = s().chart_btn;
+    chartBtn.style.display = isChartable(data.rows) ? "" : "none";
+
+    renderTable(data.rows, data.row_count);
+    document.getElementById("tableMeta").textContent =
+      `${s().rows_lbl(data.row_count)} · ${data.timing.execution_ms}ms`;
+
+    document.getElementById("answerDisplay").innerHTML = '<span class="cursor"></span>';
+    document.getElementById("answerMeta").textContent = "";
+    document.getElementById("results").style.display = "block";
+  }
+
+  function renderTable(rows, rowCount) {
+    const wrapper   = document.getElementById("tableWrapper");
+    const truncNote = document.getElementById("truncNote");
+
+    if (!rows || rows.length === 0) {
+      wrapper.innerHTML = `
+        <div class="empty-state">
+          <strong>${s().empty_title}</strong>${s().empty_msg}
+        </div>`;
+      truncNote.style.display = "none";
+      return;
+    }
+
+    const cols  = Object.keys(rows[0]);
+    const thead = `<tr>${cols.map(c => `<th>${c}</th>`).join("")}</tr>`;
+    const tbody = rows.map(row =>
+      `<tr>${cols.map(c => {
+        const v = row[c] ?? "";
+        return `<td title="${v}">${v}</td>`;
+      }).join("")}</tr>`
+    ).join("");
+
+    wrapper.innerHTML = `<table><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+
+    if (rowCount >= ROW_LIMIT) {
+      truncNote.textContent   = s().trunc_msg(ROW_LIMIT);
+      truncNote.style.display = "block";
+    } else {
+      truncNote.style.display = "none";
+    }
+  }
+
+  // ── Stream answer ─────────────────────────────────────────────
+  async function streamAnswer(question, queryData) {
+    const el = document.getElementById("answerDisplay");
+    el.innerHTML = '<span class="cursor"></span>';
+    let text = "";
+
+    try {
+      const res = await fetch("/answer/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, sql: queryData.sql, rows: queryData.rows, lang: currentLang }),
+      });
+
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        for (const line of chunk.split("\n")) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6).trim();
+          if (payload === "[DONE]") { el.textContent = text; updateHistoryAnswer(question, text); return; }
+          try {
+            const { token, error } = JSON.parse(payload);
+            if (error) { el.textContent = s().error_answer; return; }
+            if (token)  { text += token; el.innerHTML = text + '<span class="cursor"></span>'; }
+          } catch {}
+        }
+      }
+    } catch {
+      el.textContent = text || s().error_answer;
+    }
+    el.textContent = text;
+    updateHistoryAnswer(question, text);
+  }
+
+  // ── Copy SQL ──────────────────────────────────────────────────
+  function copySQL() {
+    if (!currentSQL) return;
+    navigator.clipboard.writeText(currentSQL).then(() => {
+      const btn = document.getElementById("copyBtn");
+      btn.textContent = s().copied_btn;
+      setTimeout(() => { btn.textContent = s().copy_btn; }, 1500);
+    });
+  }
+
+  // ── Export CSV ────────────────────────────────────────────────
+  function exportCSV() {
+    if (!currentRows || currentRows.length === 0) return;
+    const cols   = Object.keys(currentRows[0]);
+    const escape = v => {
+      const str = String(v ?? "");
+      return str.includes(",") || str.includes('"') || str.includes("\n")
+        ? `"${str.replace(/"/g, '""')}"` : str;
+    };
+    const csv  = [cols.join(","), ...currentRows.map(r => cols.map(c => escape(r[c])).join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement("a"), { href: url, download: "resultados.csv" });
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── Voice input ───────────────────────────────────────────────
+  (function initVoice() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    const btn = document.getElementById("micBtn");
+    btn.style.display = "";
+
+    let recognition = null;
+    let active = false;
+
+    window.toggleVoice = function () {
+      if (active) {
+        recognition.stop();
+        return;
+      }
+      recognition = new SR();
+      recognition.lang = currentLang === "es" ? "es-AR" : "en-US";
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      const ta = document.getElementById("question");
+      const base = ta.value;
+
+      recognition.onstart = () => {
+        active = true;
+        btn.classList.add("recording");
+        btn.title = "Detener";
+      };
+
+      recognition.onresult = (e) => {
+        const transcript = Array.from(e.results)
+          .map(r => r[0].transcript)
+          .join("");
+        ta.value = base ? base + " " + transcript : transcript;
+      };
+
+      recognition.onend = () => {
+        active = false;
+        btn.classList.remove("recording");
+        btn.title = "Dictado por voz";
+      };
+
+      recognition.onerror = (e) => {
+        active = false;
+        btn.classList.remove("recording");
+        console.warn("Speech recognition error:", e.error);
+      };
+
+      recognition.start();
+    };
+  })();
+</script>
+</body>
+</html>
