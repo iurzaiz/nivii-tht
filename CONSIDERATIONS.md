@@ -33,6 +33,16 @@ El enunciado menciona SQLCoder-2-7b, T5-base y otras alternativas. Evalué varia
 
 **qwen2.5-coder:7b** está disponible en Ollama, genera SQL correcto para consultas sobre una sola tabla y, además, el mismo modelo puede encargarse tanto de la generación del SQL como de la respuesta en lenguaje natural. No fue necesario descargar dos modelos ni mantener dos servicios separados.
 
+### Un modelo, dos roles
+
+El enunciado plantea como tarea opcional hostear un segundo modelo dedicado a traducir los resultados a lenguaje natural. La decisión fue no hacerlo, y voy explicar por qué.
+
+El mismo `qwen2.5-coder:7b` que genera el SQL recibe los resultados de la consulta y produce la respuesta en lenguaje natural, con un system prompt distinto y temperatura 0.3. El outcome es idéntico al que pide el bonus: el usuario pregunta en lenguaje natural y recibe una respuesta como "El producto más vendido los viernes es el Alfajor 70 cacao x un".
+
+Agregar un segundo modelo (por ejemplo, `llama3.2:1b` exclusivamente para respuestas) sumaría entre 1 y 4 GB de RAM extra, requeriría coordinar dos servicios dentro del mismo contenedor Ollama o levantar un segundo contenedor, y no mejoraría la calidad de una tarea tan acotada como "escribí una oración que responda esta pregunta". El trade-off de recursos no se justifica cuando el modelo actual la resuelve correctamente.
+
+La arquitectura está diseñada para que este cambio sea trivial si se decide hacerlo: `stream_answer()` en `llm.py` es la única función a modificar, y bastaría con apuntar a un `ANSWER_MODEL_NAME` distinto.
+
 Por defecto, Ollama cuantiza el modelo a `q4_K_M`, lo que reduce el uso de memoria de ~14 GB (fp16) a ~4.5 GB. Con eso, el modelo corre en cualquier máquina con 8 GB de RAM, que me pareció un mínimo razonable para asumir del lado del evaluador.
 
 ### Limitaciones conocidas
