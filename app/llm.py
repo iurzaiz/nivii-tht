@@ -50,6 +50,16 @@ FEW_SHOT = [
         "How many unique tickets were there?",
         "SELECT COUNT(DISTINCT ticket_number) AS unique_tickets FROM sales;",
     ),
+    (
+        "What is the average sale amount per day of the week?",
+        "SELECT week_day, ROUND(AVG(total)::numeric, 2) AS avg_total "
+        "FROM sales GROUP BY week_day ORDER BY avg_total DESC;",
+    ),
+    (
+        "How do sales vary by hour of the day?",
+        "SELECT EXTRACT(HOUR FROM hour)::int AS hour_of_day, SUM(total) AS total_sales "
+        "FROM sales GROUP BY hour_of_day ORDER BY hour_of_day;",
+    ),
 ]
 
 
@@ -58,7 +68,9 @@ def _build_sql_prompt(question: str, schema_str: str, failed_sql: str = None, er
     date_ctx = (
         f"Today's date: {today.isoformat()} "
         f"({today.strftime('%A, %B %d, %Y')}). "
-        "Use this to resolve relative time expressions like 'last month', 'this week', 'yesterday'."
+        "Use this ONLY when the question explicitly mentions relative time expressions like "
+        "'last month', 'this week', 'yesterday', 'today'. "
+        "Do NOT add any date filter unless the question explicitly requests a specific time period."
     )
     parts = [date_ctx, schema_str, "\nExamples:"]
     for q, sql in FEW_SHOT:
